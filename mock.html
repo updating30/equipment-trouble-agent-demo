@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>装置トラブル対応エージェント（画面のモック）</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --side: #f0f2f6;
+    --text: #262730;
+    --muted: #6b6f7b;
+    --line: #e1e4ea;
+    --card: #ffffff;
+    --accent: #ff4b4b;
+    --info-bg: #e8f0fe;
+    --info-text: #1e3a8a;
+    --demo-bg: #fff8e1;
+    --demo-text: #7a5a00;
+    --user-bg: #f7f8fa;
+    --ok: #15803d;
+    --code-bg: #eef0f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1117;
+      --side: #1a1d24;
+      --text: #e6e8ee;
+      --muted: #9aa0ad;
+      --line: #2c313c;
+      --card: #161a22;
+      --info-bg: #172554;
+      --info-text: #bfdbfe;
+      --demo-bg: #3a2f0b;
+      --demo-text: #fde68a;
+      --user-bg: #1a1d24;
+      --ok: #4ade80;
+      --code-bg: #262a33;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .mock-banner {
+    background: var(--demo-bg);
+    color: var(--demo-text);
+    padding: 8px 16px;
+    font-size: 13px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .layout { display: flex; min-height: calc(100vh - 38px); }
+  aside {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--side);
+    padding: 24px 18px;
+    border-right: 1px solid var(--line);
+  }
+  aside h3 { margin: 0 0 8px; font-size: 17px; }
+  aside p { margin: 0 0 8px; font-size: 14px; }
+  .caption { color: var(--muted); font-size: 12.5px; }
+  .toggle { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; font-size: 14px; }
+  .toggle .sw { width: 34px; height: 18px; border-radius: 9px; background: var(--accent); position: relative; opacity: .55; }
+  .toggle .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  .side-label { margin: 16px 0 6px; font-weight: 700; font-size: 14px; }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--text);
+    padding: 8px 12px;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .q-btn { display: block; width: 100%; text-align: left; margin-bottom: 8px; font-size: 13.5px; line-height: 1.5; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+  .reset { width: 100%; }
+  main { flex: 1; min-width: 0; padding: 28px 32px 120px; max-width: 860px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  .notice {
+    background: var(--demo-bg);
+    color: var(--demo-text);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .msg { display: flex; gap: 12px; margin: 18px 0; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 17px;
+  }
+  .msg.user .avatar { background: #ffbd45; }
+  .msg.ai .avatar { background: #ff6c6c; }
+  .msg .body { flex: 1; min-width: 0; }
+  .msg.user .body { background: var(--user-bg); border-radius: 8px; padding: 6px 12px; }
+  .body p { margin: 0 0 10px; }
+  .body ol { margin: 0 0 10px; padding-left: 22px; }
+  .status {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 13.5px;
+  }
+  .status-head { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .status-head .spin {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  .status-head .done { color: var(--ok); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  details summary { cursor: pointer; font-size: 13.5px; color: var(--muted); }
+  .steps { margin: 6px 0 0; padding-left: 22px; font-size: 13.5px; }
+  .steps li { margin: 2px 0; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 0 4px; font-size: 12.5px; }
+  .info {
+    background: var(--info-bg);
+    color: var(--info-text);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    margin: 6px 0 10px;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 12px 0 18px 44px;
+    background: var(--card);
+  }
+  .card h4 { margin: 0 0 10px; font-size: 17px; }
+  .card .row { margin: 2px 0; }
+  .card .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .card .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .card .primary:hover { color: #fff; opacity: .9; }
+  .composer {
+    position: fixed;
+    left: 300px; right: 0; bottom: 0;
+    padding: 14px 32px 20px;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+  }
+  .composer form { display: flex; gap: 8px; max-width: 796px; }
+  .composer input {
+    flex: 1;
+    font: inherit;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--user-bg);
+    color: var(--text);
+  }
+  .composer input:disabled { opacity: .6; }
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; }
+    aside { width: 100%; border-right: none; border-bottom: 1px solid var(--line); padding: 16px; }
+    main { padding: 20px 16px 120px; }
+    h1 { font-size: 22px; }
+    .card { margin-left: 0; }
+    .composer { left: 0; padding: 12px 16px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="mock-banner">これは画面の<strong>モック（動きの見本）</strong>です。実際のアプリは Python と Streamlit で動き、AIの判断は Claude API が行います。データはすべて架空です。</div>
+<div class="layout">
+  <aside>
+    <h3>🔧 装置トラブル対応エージェント</h3>
+    <p>装置のトラブルを質問すると、AIが設備台帳・マニュアル・保全記録を自分で調べて、根拠つきで答えます。</p>
+    <div class="caption">※ データはすべて架空です。実在の装置・会社とは関係ありません。</div>
+    <div class="toggle"><span class="sw" aria-hidden="true"></span>デモモード（APIを使わない）</div>
+    <div class="caption">このモックでは、AIの返事は台本です。</div>
+    <div class="side-label">質問の例</div>
+    <div id="examples"></div>
+    <hr>
+    <button class="reset" id="reset" type="button">会話をリセット</button>
+    <p class="caption" style="margin-top:10px">1つの質問でAIを呼ぶ上限: 10回</p>
+  </aside>
+  <main>
+    <h1>🔧 装置トラブル対応エージェント</h1>
+    <div class="caption">Claude API の Tool Use（Function Calling）で動くエージェントです。データの書き換え（保全依頼）だけは、人の承認を挟みます。</div>
+    <div class="notice">🎬 <strong>左の「質問の例」を押すと</strong>、AIが道具を選んで調べ、答えるまでの流れを再現します。2つ目の例では、保全依頼の前で人の承認を待ちます。</div>
+    <div id="chat" aria-live="polite"></div>
+    <div id="approval"></div>
+  </main>
+</div>
+<div class="composer">
+  <form id="composer">
+    <input id="input" type="text" autocomplete="off" placeholder="装置のトラブルを入力（例：ライン3の充填機でE-12が出た）" aria-label="質問">
+    <button type="submit" id="send">送信</button>
+  </form>
+</div>
+
+<script>
+(() => {
+  const TOOL = {
+    get_equipment: "設備台帳を調べる",
+    search_manual: "マニュアルを探す",
+    search_maintenance_log: "保全記録を探す",
+    create_work_request: "保全依頼を登録する",
+  };
+  const ai = (n, reason) => `🤖 AIの判断 ${n}回目 … <code>${reason}</code>`;
+  const tool = (name, args, outcome) => {
+    const a = Object.entries(args).map(([k, v]) => `${k}=「${v}」`).join("、");
+    return `🔧 ${TOOL[name]}（<code>${name}</code>）${a} → ${outcome}`;
+  };
+
+  const QUESTIONS = [
+    "ライン3の充填機でエラーE-12が出た。どうすればいい？",
+    "ライン3のラベラーでラベルが斜めに貼られる。前にも起きた気がする。",
+    "ライン5の包装機でエラーP-01が出ています。",
+  ];
+
+  const SCENARIOS = {
+    filler: {
+      steps: [
+        ai(1, "tool_use"),
+        tool("get_equipment", { query: "ライン3 充填機" }, "1件"),
+        ai(2, "tool_use"),
+        tool("search_manual", { model: "FL-200", keywords: "E-12 ノズル" }, "3件"),
+        tool("search_maintenance_log", { equipment_id: "EQ-003", keywords: "E-12" }, "2件"),
+        ai(3, "end_turn"),
+      ],
+      answer: `
+        <p><strong>ノズルの詰まり（E-12）の可能性が高いです。</strong> 対象はライン3の充填機（EQ-003、型番 FL-200）です。</p>
+        <ol>
+          <li>まず、マニュアル5.3章「ノズルの洗浄手順」のとおりに洗浄してください。作業の前に、<strong>主電源をOFFにし、圧縮空気の元弁を閉じて、残圧計が0になったことを確かめて</strong>ください。</li>
+          <li>洗浄のときに、ノズルのOリングも点検してください。亀裂・変形があれば交換が必要です（部品 OR-12）。</li>
+          <li>この装置では、9/12に「洗浄してもE-12が再発し、Oリングの交換で直った」記録があります（ML-0007）。洗浄しても再発する場合は、Oリングの交換を検討してください。保全依頼が必要なら、お知らせください。</li>
+        </ol>
+        <p>根拠：FL-200 取扱説明書 5.3章・3章（エラーコード一覧）、保全記録 ML-0007・ML-0006</p>`,
+    },
+    labeler: {
+      steps: [
+        ai(1, "tool_use"),
+        tool("get_equipment", { query: "ライン3 ラベラー" }, "1件"),
+        ai(2, "tool_use"),
+        tool("search_manual", { model: "LB-30", keywords: "L-21 斜め" }, "2件"),
+        tool("search_maintenance_log", { equipment_id: "EQ-004", keywords: "L-21 斜め" }, "2件"),
+        ai(3, "tool_use"),
+        `⏸️ ${TOOL.create_work_request}（<code>create_work_request</code>）… 人の承認待ち`,
+      ],
+      answer: `
+        <p>ライン3のラベラー（EQ-004、型番 LB-30）の斜め貼り（L-21）です。マニュアル5.1章では、ガイドローラーの位置を基準線に合わせ、ローラーを手で回してゴリゴリした感触がないかを確かめるとあります。この装置では9/25に、位置調整では直らず、ベアリングの摩耗が原因だった記録があります（ML-0011）。再発の可能性が高いため、ベアリング交換の保全依頼を作成します。登録には承認が必要です。</p>
+        <div class="info">保全依頼の登録には、人の承認が必要です。下の内容を確かめてください。</div>`,
+      approval: {
+        equipment: "EQ-004（ライン3 ラベラー LB-30）",
+        title: "ラベラーのガイドローラー ベアリング交換（L-21 斜め貼りの再発）",
+        priority: "中",
+        detail: "ライン3のラベラー（LB-30）で斜め貼り（L-21）が発生。9/25にも同じ症状があり、位置調整では直らずベアリング（BG-608）の交換で復旧している（ML-0011）。マニュアル5.1章の手順3でローラーにゴリゴリした感触があれば、ベアリングの交換をお願いしたい。",
+      },
+      afterApprove: {
+        steps: [
+          "🙋 人の承認: <strong>登録する</strong>",
+          tool("create_work_request", { equipment_id: "EQ-004", priority: "中" }, "WR-0001 を登録"),
+          ai(4, "end_turn"),
+        ],
+        answer: `
+          <p><strong>保全依頼を登録しました（WR-0001、優先度：中）。</strong></p>
+          <p>保全担当の対応を待つ間は、マニュアル5.1章の手順でガイドローラーの位置を基準線に合わせ、斜め貼りが収まるかを確かめてください。作業の前に、必ず主電源をOFFにしてください。</p>
+          <p>根拠：LB-30 取扱説明書 5.1章、保全記録 ML-0011・ML-0004</p>`,
+      },
+      afterReject: {
+        steps: [
+          "🙅 人の承認: <strong>登録しない</strong>",
+          ai(4, "end_turn"),
+        ],
+        answer: `
+          <p><strong>保全依頼は登録しませんでした。</strong></p>
+          <p>まず、マニュアル5.1章の手順で、ガイドローラーの位置調整と、ローラーの感触の確認を行ってください（作業の前に主電源をOFF）。ゴリゴリした感触やガタつきがある場合は、9/25（ML-0011）と同じくベアリング（BG-608）の交換が必要です。そのときは、あらためて依頼を作成します。</p>
+          <p>根拠：LB-30 取扱説明書 5.1章、保全記録 ML-0011・ML-0004</p>`,
+      },
+    },
+    unknown: {
+      steps: [
+        ai(1, "tool_use"),
+        tool("get_equipment", { query: "ライン5 包装機" }, "0件"),
+        ai(2, "tool_use"),
+        tool("get_equipment", { query: "包装機" }, "0件"),
+        ai(3, "end_turn"),
+      ],
+      answer: `
+        <p>設備台帳で「ライン5 包装機」と「包装機」を調べましたが、<strong>見つかりませんでした。</strong></p>
+        <p>台帳に無い装置のため、型番が分からず、マニュアルや保全記録も確かめられません。エラーP-01の対処を推測でお答えすることは控えます。</p>
+        <p>設備ID（EQ-xxx）や正式な装置名が分かれば、もう一度調べます。保全担当にも確認してください。</p>`,
+    },
+    other: {
+      steps: [],
+      answer: `<p>このモックでは、左の「質問の例」の3つだけを再現しています。実際のアプリでは、自由な質問にAIが答えます。</p>`,
+    },
+  };
+
+  const chat = document.getElementById("chat");
+  const approval = document.getElementById("approval");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+  const examples = document.getElementById("examples");
+  const resetBtn = document.getElementById("reset");
+  const STEP_MS = 650;
+  let busy = false;
+  let pending = false;
+
+  QUESTIONS.forEach((q) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "q-btn";
+    b.textContent = q;
+    b.addEventListener("click", () => ask(q));
+    examples.appendChild(b);
+  });
+
+  function pick(q) {
+    const s = q.replace(/３/g, "3").replace(/５/g, "5");
+    if (/E-12/i.test(s) && s.includes("充填")) return "filler";
+    if (s.includes("ラベラー") || s.includes("斜め")) return "labeler";
+    if (s.includes("ライン5") || s.includes("包装機")) return "unknown";
+    return "other";
+  }
+
+  function setLocked() {
+    const locked = busy || pending;
+    examples.querySelectorAll("button").forEach((b) => (b.disabled = locked));
+    input.disabled = locked;
+    send.disabled = locked;
+    input.placeholder = pending
+      ? "承認待ちの間は、質問を入力できません"
+      : "装置のトラブルを入力（例：ライン3の充填機でE-12が出た）";
+  }
+
+  function addMessage(role, html) {
+    const wrap = document.createElement("div");
+    wrap.className = `msg ${role}`;
+    wrap.innerHTML = `<div class="avatar" aria-hidden="true">${role === "user" ? "🧑‍🔧" : "🤖"}</div><div class="body"></div>`;
+    wrap.querySelector(".body").innerHTML = html;
+    chat.appendChild(wrap);
+    wrap.scrollIntoView({ behavior: "smooth", block: "end" });
+    return wrap.querySelector(".body");
+  }
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function runSteps(body, steps) {
+    if (!steps.length) return;
+    const box = document.createElement("div");
+    box.className = "status";
+    box.innerHTML = `<div class="status-head"><span class="spin"></span>調べています…</div><ol class="steps"></ol>`;
+    body.appendChild(box);
+    const list = box.querySelector(".steps");
+    for (const line of steps) {
+      await wait(STEP_MS);
+      const li = document.createElement("li");
+      li.innerHTML = line;
+      list.appendChild(li);
+      li.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+    await wait(STEP_MS);
+    // 終わったら、Streamlit と同じく「調べた手順」に畳む
+    const details = document.createElement("details");
+    details.innerHTML = `<summary>調べた手順（${steps.length}件）</summary>`;
+    details.appendChild(list);
+    box.replaceWith(details);
+    return details;
+  }
+
+  async function respond(scenario, steps, answerHtml) {
+    const body = addMessage("ai", "");
+    const answer = document.createElement("div");
+    answer.innerHTML = answerHtml;
+    const details = await runSteps(body, steps);
+    if (details) body.insertBefore(answer, details);
+    else body.appendChild(answer);
+    answer.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  function showApproval(a) {
+    approval.innerHTML = `
+      <div class="card" role="group" aria-label="保全依頼の承認">
+        <h4>🙋 保全依頼の承認</h4>
+        <div class="row"><strong>装置</strong>: ${a.equipment}</div>
+        <div class="row"><strong>件名</strong>: ${a.title}</div>
+        <div class="row"><strong>優先度</strong>: ${a.priority}</div>
+        <div class="row" style="margin-top:8px"><strong>内容</strong>:</div>
+        <div class="row">${a.detail}</div>
+        <div class="btns">
+          <button type="button" class="primary" data-ok="1">承認して登録</button>
+          <button type="button" data-ok="0">登録しない</button>
+        </div>
+      </div>`;
+    approval.querySelectorAll("button").forEach((b) =>
+      b.addEventListener("click", () => decide(b.dataset.ok === "1"))
+    );
+    approval.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  async function decide(ok) {
+    approval.innerHTML = "";
+    pending = false;
+    busy = true;
+    setLocked();
+    const s = SCENARIOS.labeler[ok ? "afterApprove" : "afterReject"];
+    await respond("labeler", s.steps, s.answer);
+    busy = false;
+    setLocked();
+  }
+
+  async function ask(q) {
+    if (busy || pending) return;
+    busy = true;
+    setLocked();
+    addMessage("user", `<p>${q.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</p>`);
+    const key = pick(q);
+    const s = SCENARIOS[key];
+    await respond(key, s.steps, s.answer);
+    busy = false;
+    if (s.approval) {
+      pending = true;
+      showApproval(s.approval);
+    }
+    setLocked();
+  }
+
+  document.getElementById("composer").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = "";
+    ask(q);
+  });
+
+  resetBtn.addEventListener("click", () => {
+    chat.innerHTML = "";
+    approval.innerHTML = "";
+    busy = false;
+    pending = false;
+    setLocked();
+  });
+
+  setLocked();
+})();
+</script>
+</body>
+</html>
